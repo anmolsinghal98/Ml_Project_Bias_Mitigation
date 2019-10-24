@@ -8,6 +8,35 @@ This is a temporary script file.
 import json
 import matplotlib.pyplot as plt
 import numpy as np
+import pystan
+
+baseline="""
+
+data {
+      int<lower=1> I; // number of products
+      int<lower=1> N; // number of reviews
+      int<lower=1> J; // number of reviewers
+      vector<lower=0> [N] scores; // review scores vector
+      int reviewerID[N]; // reviewer ID for each review
+      int prodID[N]; // product ID for each review
+}
+
+parameters {
+    vector [I] truescore;
+    vector [J] reviewbias;
+    real<lower=0> c;
+    real<lower=0> d;
+}
+
+model {
+    c ~ gamma(1,1);
+    truescore ~ normal(3,1); // TODO: change hyperparameters for data reviewbias ~ normal(0, 1/c);
+    for (i in 1:N) {
+                scores[i] ~ normal(truescore[prodID[i]] + reviewbias[reviewerID[i]], 1);
+                } 
+    }
+
+"""
 
 path='reviews_Amazon_Instant_Video_5.json'
 
@@ -80,19 +109,50 @@ print('No of products with more than 10 reviews',count2)
 print("Reduced users",len(rusers))
 print("Reduced products",len(rproducts))
 
-A=[]
+
+rmap={}
+pmap={}
+rcount=1
+pcount=1
+
+for key in rusers.keys():
+    rmap[key]=rcount
+    rcount+=1
+
+for key in rproducts.keys():
+    pmap[key]=pcount
+    pcount+=1
+
+
+reviewer=[]
+product=[]
 ratings=[]
+helpful=[]
+
 for key in rusers.keys():
     for prod in rusers[key]:
         
         if prod['asin'] in rproducts:
-            A.append([key,prod['asin']])
+            reviewer.append(rmap[key])
+            product.append(pmap[prod['asin']])
             ratings.append(prod['overall'])
+            helpful.append(prod['helpful'])
 
-plt.hist(ratings, bins = 5)
+plt.hist(ratings, bins = [1,2,3,4,5,6])
 
-print(len(A))
-
-
+print(helpful[0])
 
 print(data[0])
+
+
+base_data = {'I': 810, 'N': 6854, 'J':511, 'scores':ratings, 'reviewerID':reviewer, 'prodID':product}
+
+sm = pystan.StanModel(model_code=baseline)
+
+fit = sm.sampling(data=base_data, iter=1000, chains=4)
+
+print(fit)
+
+la = fit.extract(permuted=True)
+
+plt.plot(la['reviewbias'][:,0],[1,2,3,4,5])
