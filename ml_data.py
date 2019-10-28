@@ -154,5 +154,3 @@ fit = sm.sampling(data=base_data, iter=1000, chains=4)
 print(fit)
 
 la = fit.extract(permuted=True)
-
-plt.plot(la['reviewbias'][:,0],[1,2,3,4,5])
